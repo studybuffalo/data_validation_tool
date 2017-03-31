@@ -1,6 +1,7 @@
 # Program Files
 /logs
 /data_backup
+*.config
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
