@@ -24,3 +24,10 @@
     SHOULD YOU REQUIRE ANY EXCEPTIONS TO THIS LICENSE, PLEASE CONTACT 
     THE COPYRIGHT HOLDERS.
 """
+
+import tkinter
+from tkinter import ttk
+
+root = tkinter.Tk()
+ttk.Button(root, text="Hello World!").grid()
+root.mainloop()
