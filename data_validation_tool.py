@@ -25,9 +25,27 @@
     THE COPYRIGHT HOLDERS.
 """
 
+import sys
+from unipath import Path
+import configparser
+import python_logging
 import tkinter
 from tkinter import ttk
 
+# APPLICATION SETUP
+# Set root path to allow retrieval of other files
+root = Path(sys.argv[1])
+
+# Setup the public config file
+pubCon = configparser.ConfigParser()
+pubCon.read(root.child("abc_config.cfg").absolute())
+
+# Setup the private config file
+priCon = configparser.ConfigParser()
+priCon.read(Path(pubCon.get("misc", "private_config")).absolute())
+
+# Setup the logging object
+log = python_logging(priCon)
+
 root = tkinter.Tk()
-ttk.Button(root, text="Hello World!").grid()
-root.mainloop()
+root.title("Study Buffalo Data Validation Tool")
