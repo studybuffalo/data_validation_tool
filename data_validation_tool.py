@@ -24,12 +24,46 @@
     SHOULD YOU REQUIRE ANY EXCEPTIONS TO THIS LICENSE, PLEASE CONTACT 
     THE COPYRIGHT HOLDERS.
 """
+def collect_icons():
+    """Collects all program icons and saves them in object"""
+    class Icons(object):
+        def __init__(self, copy, search, upload, val, inval):
+            self.copy = copy
+            self.search = search
+            self.upload = upload
+            self.val = val
+            self.inval = inval
+
+    copyP = r"E:\My Documents\GitHub\data_validation_tool\icons\copy.png"
+    copyImage = PhotoImage(file=copyP)
+
+    searchP = r"E:\My Documents\GitHub\data_validation_tool\icons\search.png"
+    searchImage = PhotoImage(file=searchP)
+
+    uploadP = r"E:\My Documents\GitHub\data_validation_tool\icons\upload.png"
+    uploadImage = PhotoImage(file=uploadP)
+
+    valP = r"E:\My Documents\GitHub\data_validation_tool\icons\validated.png"
+    valImage = PhotoImage(file=valP)
+
+    invalP = r"E:\My Documents\GitHub\data_validation_tool\icons\invalid.png"
+    invalImage = PhotoImage(file=invalP)
+
+    return Icons(copyImage, searchImage, uploadImage, valImage, invalImage)
+
+
+def clear_frame(frame):
+    for child in frame.winfo_children():
+        child.destroy()
+
 def create_menu_bar(root):
     root.option_add("*tearOff", FALSE)
 
     menubar = Menu(root)
 
     menuFile = Menu(menubar)
+    menuFile.add_command(label="Return to main menu", 
+                         command=lambda: create_main_page(root, db))
     menuFile.add_command(label="Close", command=root.quit)
     menuAbout = Menu(menubar)
     menubar.add_cascade(menu=menuFile, label="File")
@@ -37,32 +71,120 @@ def create_menu_bar(root):
 
     root.config(menu=menubar)
 
-def abc_validation(root, dashboard):
+def copy_text(text):
+    log.debug("Copying %s to clipboard" % text)
+    root.clipboard_clear()
+    root.clipboard_append(text)
+
+def search_text(text):
+    """Searches the Google.ca for the text"""
+    log.debug("Searching for %s on Google.ca" % text)
+
+    # Replace all white space with "+" for the search query
+    search = text.replace(" ", "+")
+    url = "https://www.google.ca/search?q=%s&adtext=off" % search
+
+    # Open the browser in a new tab (if possible)
+    webbrowser.open_new_tab(url)
+
+def abc_bsrf(root, db):
     log.debug("Creating the validation window")
     
+    # Collect database data
+    bsrfData = database.retrieve_table_data(db.cursor, log)
+
     # Remove old content
-    dashboard.destroy()
+    clear_frame(dashboard)
+
     root.title("Study Buffalo Data Validation Tool - ABC DBL Validation")
 
-    abc = ttk.Frame(root, padding="3 3 12 12")
+    # Font Styles and Label Styles
+    fontTitle = font.Font(size=16, weight="bold")
+    fontH1 = font.Font(size=13, weight="bold")
+    
+    # Create the title
+    pageTitle = ttk.Label(dashboard, text="ABC iDBL BSRF Validation", font=fontTitle)
+    pageTitle.grid(column=0, row=0, sticky=(N, W), pady=(0,10), columnspan=5)
+    
+    horSep1 = ttk.Separator(dashboard,orient=HORIZONTAL)
+    horSep1.grid(column=0, row=1, sticky=(E, W), columnspan=5, pady=5)
+
+    # Create the headers
+    bsrfLabel = ttk.Label(dashboard, text="BSRF", font=fontH1)
+    bsrfLabel.grid(column=0, row=2, sticky=(N, W), pady=5, padx=10)
+
+    brandLabel = ttk.Label(dashboard, text="Brand Name", font=fontH1)
+    brandLabel.grid(column=0, row=2, sticky=(N, W), pady=5, padx=10)
+
+    strengthLabel = ttk.Label(dashboard, text="Strength", font=fontH1)
+    strengthLabel.grid(column=0, row=2, sticky=(N, W), pady=5, padx=10)
+
+    routeLabel = ttk.Label(dashboard, text="Route", font=fontH1)
+    routeLabel.grid(column=0, row=2, sticky=(N, W), pady=5, padx=10)
+
+    formLabel = ttk.Label(dashboard, text="Dosage Form", font=fontH1)
+    formLabel.grid(column=0, row=2, sticky=(N, W), pady=5, padx=10)
+
+    i = 3
+
+    for row in bsrfData:
+        # BSRF
+        inputBSRF = ttk.Label(dashboard, text=row[0])
+        inputBSRF.grid(column=0, row=i, sticky=(N, W, S), pady=5, padx=10)
+
+        # Validation BSRF label
+        valBSRF = ttk.Label(dashboard, image=icons.inval)
+        valBSRF.grid(column=1, row=i, pady=5, padx=2)
+
+        # Copy BSRF button
+        copyBSRF = ttk.Button(dashboard, image=icons.copy, 
+                              command=lambda: copy_text(row[0]))
+        copyBSRF.grid(column=2, row=i, pady=5, padx=2)
+
+        # Search BSRF button
+        searchBSRF = ttk.Button(dashboard, image=icons.search,
+                                command=lambda: search_text(row[0]))
+        searchBSRF.grid(column=3, row=i, pady=5, padx=(2, 10))
+
+        # Brand Name
+        inputBrand = ttk.Entry(dashboard, width=60)
+        inputBrand.insert(0, row[1])
+        inputBrand.grid(column=4, row=i, sticky=(N, S, W), pady=5, padx=10)
+
+        # Strength
+        inputStrength = ttk.Entry(dashboard)
+        inputStrength.insert(0, row[2])
+        inputStrength.grid(column=5, row=i, sticky=(N, S, W), pady=5, padx=10)
+
+        # Route
+        inputRoute = ttk.Entry(dashboard)
+        inputRoute.insert(0, row[3])
+        inputRoute.grid(column=6, row=i, sticky=(N, S, W), pady=5, padx=10)
+
+        # Dosage Form
+        inputForm = ttk.Entry(dashboard)
+        inputForm.insert(0, row[4])
+        inputForm.grid(column=7, row=i, sticky=(N, S, W), pady=5, padx=10)
+
+        i = i + 1
+
+    horSep2 = ttk.Separator(dashboard,orient=HORIZONTAL)
+    horSep2.grid(column=0, row=i, sticky=(E, W), columnspan=5, pady=5)
 
 def close_program():
     log.debug("Closing program")
 
-def create_dashboard(root):
+def create_main_page(root, db):
     root.title("Study Buffalo Data Validation Tool")
     
+    # Remove old content
+    clear_frame(dashboard)
+
     # Font Styles and Label Styles
     fontTitle = font.Font(size=16, weight="bold")
     fontH1 = font.Font(size=13, weight="bold")
     fontH2 = font.Font(size=13, slant="italic")
     fontStats = font.Font(size=13)
-
-    # Create the frame
-    dashboard = ttk.Frame(root, padding="3 3 12 12")
-    dashboard.grid(column=0, row=0, sticky=(N, W, E, S), padx=5, pady=5)
-    dashboard.columnconfigure(0, weight=1)
-    dashboard.columnconfigure(0, weight=1)
 
     # Create a title
     appTitle = ttk.Label(dashboard, text="Study Buffalo Data Validation Tool", font=fontTitle)
@@ -81,7 +203,8 @@ def create_dashboard(root):
     abcStat.grid(column=0, row=4, sticky=(N, E), pady=5, padx=10)
 
     # BSRF Button
-    abcButBSRF = ttk.Button(dashboard, text="BSRF Substitutions")
+    abcButBSRF = ttk.Button(dashboard, text="BSRF Substitutions", 
+                            command=lambda: abc_bsrf(root, db))
     abcButBSRF.grid(column=1, row=3, sticky=N, pady=5, padx=10)
 
     abcStatBSRFEntry = 0
@@ -183,6 +306,7 @@ import configparser
 import python_logging
 from tkinter import *
 from tkinter import ttk, font
+import webbrowser
 from modules import database
 
 # APPLICATION SETUP
@@ -200,8 +324,14 @@ priCon.read(Path(pubCon.get("misc", "private_config")).absolute())
 # Setup the logging object
 log = python_logging.start(priCon)
 
+# Set up database connection
+db = database.setup_db_connection(priCon, log)
+
 # Setting up the program window
 root = Tk()
+
+# Icon Images
+icons = collect_icons()
 
 # Set to maximize
 root.wm_state('zoomed')
@@ -209,7 +339,11 @@ root.wm_state('zoomed')
 # Creating Menu Bar
 create_menu_bar(root)
 
+# Create the frame
+dashboard = ttk.Frame(root, padding="3 3 12 12")
+dashboard.grid(column=0, row=0, sticky=(N, W, E, S), padx=5, pady=5)
+
 # Start initial program window
-create_dashboard(root)
+create_main_page(root, db)
 
 root.mainloop()
