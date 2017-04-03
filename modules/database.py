@@ -33,15 +33,21 @@ def setup_db_connection(conf, log):
 
     return db
 
-def retrieve_table_data(cursor, log):
-    s = ("SELECT bsrf, brand_name, strength, route, dosage_form "
-         "FROM abc_subs_bsrf ORDER BY bsrf ASC LIMIT 10")
-    cursor.execute(s)
+def retrieve_table_data(cursor, query, colNames, log):
+    log.debug("Attempting query: %s" % query)
+    cursor.execute(query)
 
     output = []
 
     for row in cursor:
-        output.append([row["bsrf"], row["brand_name"], row["strength"], 
-                       row["route"], row["dosage_form"]])
+        rowData = []
+
+        for name in colNames:
+            # Replace nulls with blank strings to allow proper 
+            # entry generation in program
+            text = row[name] if row[name] else ""
+            rowData.append(text)
+
+        output.append(rowData)
 
     return output

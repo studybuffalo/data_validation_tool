@@ -24,6 +24,110 @@
     SHOULD YOU REQUIRE ANY EXCEPTIONS TO THIS LICENSE, PLEASE CONTACT 
     THE COPYRIGHT HOLDERS.
 """
+
+class ProgramData(object):
+    def __init__(self, title):
+        self.title = title
+        self.tables = []
+
+class TableData(object):
+    def __init__(self, title, name, colData, colNames):
+        self.title = title
+        self.name = name
+        self.columns = colData
+        self.columnNames = colNames
+        self.select = ("SELECT %s FROM %s ORDER BY %s ASC LIMIT 10" 
+                       % (", ".join(colNames), name, colNames[0]))
+
+class ColumnData(object):
+    def __init__(self, title, name, width, valid, copy, search):
+        self.title = title
+        self.name = name
+        self.width = width
+        self.valid = valid
+        self.copy = copy
+        self.search = search
+
+def collect_table_info(conf, log):
+    # TO DO: NEED TO ADD ERROR HANDLING FOR NON-EXISTANT DATA
+    # Collect the overall program names
+    progSects = conf.get("programs", "sects").split(",")
+
+    # For each program, find names of each table
+    programList = []
+
+    for prog in progSects:
+        # Set the program config section name
+        progSect = "prog_%s" % prog
+
+        # Get the title of the entire program
+        progTitle = conf.get(progSect, "title")
+        
+        # Compile data into object
+        program = ProgramData(progTitle)
+
+        # Get the names 
+        tabSects = conf.get(progSect, "sects").split(",")
+        
+        # For each table, collected the needed info
+        for tab in tabSects:
+            # Set the table config section name
+            tabSect = "table_%s_%s" % (prog, tab)
+
+            # Get the title of the table section
+            tabTitle = conf.get(tabSect, "title")
+
+            # Get the MySQL name of the table
+            tabName = conf.get(tabSect, "name")
+
+            # Get the column config section names
+            colSects = conf.get(tabSect, "sects").split(",")
+            
+            # For each column, collect the needed information
+            colData = []
+            colNames = []
+
+            for col in colSects:
+                # Set the column config section name
+                colSect = "col_%s_%s_%s" % (prog, tab, col)
+
+                # Get the title of the column
+                colTitle = conf.get(colSect, "title")
+
+                # Get the MySQL name of the column
+                colName = conf.get(colSect, "name")
+
+                # Get the display width of the column
+                colWidth = conf.getint(colSect, "width")
+
+                # Get whether to validate the column section
+                colVal = conf.getboolean(colSect, "validate")
+
+                # Get whether to add a copy button to the section
+                colCopy = conf.getboolean(colSect, "copy")
+
+                # Get whether to add a search button to the section
+                colSearch = conf.getboolean(colSect, "search")
+
+                # Compile data into object
+                column = ColumnData(colTitle, colName, colWidth, colVal, 
+                                    colCopy, colSearch)
+
+                # Add finished column object to list
+                colData.append(column)
+                colNames.append(colName)
+            
+            # Compile data into object
+            table = TableData(tabTitle, tabName, colData, colNames)
+
+            # Add finished table object to list
+            program.tables.append(table)
+
+        # Add finished program object to list
+        programList.append(program)
+
+    return programList
+
 def collect_icons():
     """Collects all program icons and saves them in object"""
     class Icons(object):
@@ -51,19 +155,20 @@ def collect_icons():
 
     return Icons(copyImage, searchImage, uploadImage, valImage, invalImage)
 
-
 def clear_frame(frame):
     for child in frame.winfo_children():
         child.destroy()
 
-def create_menu_bar(root):
+def create_menu_bar(root, db, programInfo):
     root.option_add("*tearOff", FALSE)
 
     menubar = Menu(root)
 
     menuFile = Menu(menubar)
-    menuFile.add_command(label="Return to main menu", 
-                         command=lambda: create_main_page(root, db))
+    menuFile.add_command(
+        label="Return to main menu", 
+        command=lambda: create_main_page(root, db, programInfo)
+    )
     menuFile.add_command(label="Close", command=root.quit)
     menuAbout = Menu(menubar)
     menubar.add_cascade(menu=menuFile, label="File")
@@ -87,96 +192,120 @@ def search_text(text):
     # Open the browser in a new tab (if possible)
     webbrowser.open_new_tab(url)
 
-def abc_bsrf(root, db):
-    log.debug("Creating the validation window")
+def create_validation_frame(root, db, table):
+    log.debug("Creating the validation window for %s" % table.title)
     
     # Collect database data
-    bsrfData = database.retrieve_table_data(db.cursor, log)
+    data = database.retrieve_table_data(db.cursor, table.select, 
+                                        table.columnNames, log)
 
     # Remove old content
     clear_frame(dashboard)
-
-    root.title("Study Buffalo Data Validation Tool - ABC DBL Validation")
 
     # Font Styles and Label Styles
     fontTitle = font.Font(size=16, weight="bold")
     fontH1 = font.Font(size=13, weight="bold")
     
+    # Set program bar title
+    root.title(table.title)
+
+    # Variables to hold grid locations
+    x = 0
+    y = 0
+
     # Create the title
-    pageTitle = ttk.Label(dashboard, text="ABC iDBL BSRF Validation", font=fontTitle)
-    pageTitle.grid(column=0, row=0, sticky=(N, W), pady=(0,10), columnspan=5)
-    
+    pageTitle = ttk.Label(dashboard, text=table.title, font=fontTitle)
+    pageTitle.grid(column=x, row=y, sticky=(N, W), pady=(0,10))
+    y = y + 1
+
     horSep1 = ttk.Separator(dashboard,orient=HORIZONTAL)
-    horSep1.grid(column=0, row=1, sticky=(E, W), columnspan=5, pady=5)
+    horSep1.grid(column=x, row=y, sticky=(E, W), pady=5)
+    y = y + 1
 
     # Create the headers
-    bsrfLabel = ttk.Label(dashboard, text="BSRF", font=fontH1)
-    bsrfLabel.grid(column=0, row=2, sticky=(N, W), pady=5, padx=10)
+    for col in table.columns:
+        # Determine colspan
+        span = 1
 
-    brandLabel = ttk.Label(dashboard, text="Brand Name", font=fontH1)
-    brandLabel.grid(column=0, row=2, sticky=(N, W), pady=5, padx=10)
+        if col.valid:
+            span = span + 1
 
-    strengthLabel = ttk.Label(dashboard, text="Strength", font=fontH1)
-    strengthLabel.grid(column=0, row=2, sticky=(N, W), pady=5, padx=10)
+        if col.copy:
+            span = span + 1
 
-    routeLabel = ttk.Label(dashboard, text="Route", font=fontH1)
-    routeLabel.grid(column=0, row=2, sticky=(N, W), pady=5, padx=10)
+        if col.search:
+            span = span + 1
 
-    formLabel = ttk.Label(dashboard, text="Dosage Form", font=fontH1)
-    formLabel.grid(column=0, row=2, sticky=(N, W), pady=5, padx=10)
+        # Create label
+        colLabel = ttk.Label(dashboard, text=col.title, font=fontH1)
+        colLabel.grid(column=x, row=y, sticky=(N, W), pady=5, padx=10, columnspan=span)
 
-    i = 3
+        # Advance to next label position
+        x = x + span
 
-    for row in bsrfData:
-        # BSRF
-        inputBSRF = ttk.Label(dashboard, text=row[0])
-        inputBSRF.grid(column=0, row=i, sticky=(N, W, S), pady=5, padx=10)
+    # Adjust the colspans for the title and separator
+    pageTitle.grid_configure(columnspan=x)
+    horSep1.grid_configure(columnspan=x)
 
-        # Validation BSRF label
-        valBSRF = ttk.Label(dashboard, image=icons.inval)
-        valBSRF.grid(column=1, row=i, pady=5, padx=2)
+    x = 0
+    y = y + 1
+    i = 0
 
-        # Copy BSRF button
-        copyBSRF = ttk.Button(dashboard, image=icons.copy, 
-                              command=lambda: copy_text(row[0]))
-        copyBSRF.grid(column=2, row=i, pady=5, padx=2)
+    for row in data:
+        for i in range(0, len(row)):
+            # Use a message widget for the original info?
+            width = table.columns[i].width
+            valid = table.columns[i].valid
+            copy = table.columns[i].copy
+            search = table.columns[i].search
 
-        # Search BSRF button
-        searchBSRF = ttk.Button(dashboard, image=icons.search,
-                                command=lambda: search_text(row[0]))
-        searchBSRF.grid(column=3, row=i, pady=5, padx=(2, 10))
+            if i == 0:
+                elem = ttk.Label(dashboard, text=row[i], width=width)
+                elem.grid(column=x, row=y, sticky=(N, W, S), pady=5, padx=10)
+            else:
+                elem = ttk.Entry(dashboard, width=width)
+                elem.insert(0, row[i])
+                elem.grid(column=x, row=y, sticky=(N, S, W), pady=5, padx=10)
 
-        # Brand Name
-        inputBrand = ttk.Entry(dashboard, width=60)
-        inputBrand.insert(0, row[1])
-        inputBrand.grid(column=4, row=i, sticky=(N, S, W), pady=5, padx=10)
+            x = x + 1
 
-        # Strength
-        inputStrength = ttk.Entry(dashboard)
-        inputStrength.insert(0, row[2])
-        inputStrength.grid(column=5, row=i, sticky=(N, S, W), pady=5, padx=10)
+            # Validation BSRF label
+            if valid:
+                valLabel = ttk.Label(dashboard, image=icons.inval)
+                valLabel.grid(column=x, row=y, pady=5, padx=2)
+                x = x + 1
 
-        # Route
-        inputRoute = ttk.Entry(dashboard)
-        inputRoute.insert(0, row[3])
-        inputRoute.grid(column=6, row=i, sticky=(N, S, W), pady=5, padx=10)
+            # Copy BSRF button
+            if copy:
+                copyBut = ttk.Button(
+                    dashboard, image=icons.copy, 
+                    command=lambda text=row[i]: copy_text(text)
+                )
+                copyBut.grid(column=x, row=y, pady=5, padx=2)
+                x = x + 1
 
-        # Dosage Form
-        inputForm = ttk.Entry(dashboard)
-        inputForm.insert(0, row[4])
-        inputForm.grid(column=7, row=i, sticky=(N, S, W), pady=5, padx=10)
+            # Search BSRF button
+            if search:
+                searchBut = ttk.Button(
+                    dashboard, image=icons.search, 
+                    command=lambda text=row[i]: search_text(text)
+                )
+                searchBut.grid(column=x, row=y, pady=5, padx=2)
+                x = x + 1
 
-        i = i + 1
+        x = 0
+        y = y + 1
 
     horSep2 = ttk.Separator(dashboard,orient=HORIZONTAL)
-    horSep2.grid(column=0, row=i, sticky=(E, W), columnspan=5, pady=5)
+    horSep2.grid(column=x, row=y, sticky=(E, W), columnspan=5, pady=5)
 
-def close_program():
-    log.debug("Closing program")
-
-def create_main_page(root, db):
+def create_main_page(root, db, programInfo):
     root.title("Study Buffalo Data Validation Tool")
     
+    # Variables to hold grid positions
+    x = 0
+    y = 0
+
     # Remove old content
     clear_frame(dashboard)
 
@@ -188,116 +317,57 @@ def create_main_page(root, db):
 
     # Create a title
     appTitle = ttk.Label(dashboard, text="Study Buffalo Data Validation Tool", font=fontTitle)
-    appTitle.grid(column=0, row=0, sticky=(N, W), pady=(0,10), columnspan=5)
+    appTitle.grid(column=x, row=y, sticky=(N, W), pady=(0,10), columnspan=5)
+    y = y + 1
 
     horSep1 = ttk.Separator(dashboard,orient=HORIZONTAL)
-    horSep1.grid(column=0, row=2, sticky=(E, W), columnspan=5, pady=5)
+    horSep1.grid(column=x, row=y, sticky=(E, W), columnspan=5, pady=5)
+    y = y + 1
 
-    # Create the ABC iDBL options
-    # Title
-    abcLabel = ttk.Label(dashboard, text="ABC iDBL Data Extraction Tool", font=fontH1)
-    abcLabel.grid(column=0, row=3, sticky=(N, E), pady=5, padx=10)
+    # Cycle through the table info and generate the navigation sections
+    for program in programInfo:
+        x = 0
 
-    # Stats Label
-    abcStat = ttk.Label(dashboard, text="Current Stats", font=fontH2)
-    abcStat.grid(column=0, row=4, sticky=(N, E), pady=5, padx=10)
+        # Title
+        abcLabel = ttk.Label(dashboard, text=program.title, font=fontH1)
+        abcLabel.grid(column=x, row=y, sticky=(N, E), pady=5, padx=10)
 
-    # BSRF Button
-    abcButBSRF = ttk.Button(dashboard, text="BSRF Substitutions", 
-                            command=lambda: abc_bsrf(root, db))
-    abcButBSRF.grid(column=1, row=3, sticky=N, pady=5, padx=10)
+        # Stats Label
+        abcStat = ttk.Label(dashboard, text="Current Stats", font=fontH2)
+        abcStat.grid(column=x, row=y + 1, sticky=(N, E), pady=5, padx=10)
 
-    abcStatBSRFEntry = 0
+        x = x + 1
+
+        # Cycle through each table and created button
+        for table in program.tables:
+
+            # Table title (as a button)
+            button = ttk.Button(
+                dashboard, text=table.title, 
+                command=lambda tab=table: create_validation_frame(root, db, tab)
+            )
+            button.grid(column=x, row=y, sticky=N, pady=5, padx=10)
+
+            # Stats on how many entries need to be verified
+            statsEntry = 0
     
-    if abcStatBSRFEntry > 1:
-        abcStatBSRFText = "%s entries" % abcStatBSRFEntry
-        abcStatBSRFCol = "red"
-    elif abcStatBSRFEntry == 1:
-        abcStatBSRFText = "%s entry" % abcStatBSRFEntry
-        abcStatBSRFCol = "red"
-    else:
-        abcStatBSRFText = "0 entries"
-        abcStatBSRFCol = "green"
+            if statsEntry > 1:
+                statsText = "%s entries" % statsEntry
+                statsColour = "red"
+            elif statsEntry == 1:
+                statsText = "%s entry" % statsEntry
+                statsColour = "red"
+            else:
+                statsText = "0 entries"
+                statsColour = "green"
 
-    abcStatBSRF = ttk.Label(dashboard, text=abcStatBSRFText, font=fontStats, 
-                            foreground=abcStatBSRFCol)
-    abcStatBSRF.grid(column=1, row=4, sticky=N, pady=5, padx=10)
+            statsLabel = ttk.Label(dashboard, text=statsText, font=fontStats, 
+                                    foreground=statsColour)
+            statsLabel.grid(column=x, row=y + 1, sticky=N, pady=5, padx=10)
 
-    # Generic Name Button
-    abcButGen = ttk.Button(dashboard, text="Generic Name Substitutions")
-    abcButGen.grid(column=2, row=3, sticky=N, pady=5, padx=10)
+            x = x + 1
 
-    abcStatGenEntry = 0
-    
-    if abcStatGenEntry > 1:
-        abcStatGenText = "%s entries" % abcStatGenEntry
-        abcStatGenCol = "red"
-    elif abcStatGenEntry == 1:
-        abcStatGenText = "%s entry" % abcStatGenEntry
-        abcStatGenCol = "red"
-    else:
-        abcStatGenText = "0 entries"
-        abcStatGenCol = "green"
-
-    abcStatGen = ttk.Label(dashboard, text=abcStatGenText, font=fontStats,
-                           foreground=abcStatGenCol)
-    abcStatGen.grid(column=2, row=4, sticky=N, pady=5, padx=10)
-
-    # Manufacturer Button
-    abcButManuf = ttk.Button(dashboard, text="Manufacturer Substitutions")
-    abcButManuf.grid(column=3, row=3, sticky=N, pady=5, padx=10)
-    
-    abcStatManufEntry = 0
-    
-    if abcStatManufEntry > 1:
-        abcStatManufText = "%s entries" % abcStatManufEntry
-        abcStatManufCol = "red"
-    elif abcStatManufEntry == 1:
-        abcStatManufText = "%s entry" % abcStatManufEntry
-        abcStatManufCol = "red"
-    else:
-        abcStatManufText = "0 entries"
-        abcStatManufCol = "green"
-
-    abcStatManuf = ttk.Label(dashboard, text=abcStatManufText, font=fontStats,
-                             foreground=abcStatManufCol)
-    abcStatManuf.grid(column=3, row=4, sticky=N, pady=5, padx=10)
-
-    # PTC Button
-    abcButPTC = ttk.Button(dashboard, text="PTC Substitutions")
-    abcButPTC.grid(column=4, row=3, sticky=N, pady=5, padx=10)
-
-    abcStatPTCEntry = 0
-    
-    if abcStatPTCEntry > 1:
-        abcStatPTCText = "%s entries" % abcStatPTCEntry
-        abcStatPTCCol = "red"
-    elif abcStatPTCEntry == 1:
-        abcStatPTCText = "%s entry" % abcStatPTCEntry
-        abcStatPTCCol = "red"
-    else:
-        abcStatPTCText = "0 entries"
-        abcStatPTCCol = "green"
-
-    abcStatPTC = ttk.Label(dashboard, text=abcStatPTCText, font=fontStats,
-                           foreground=abcStatPTCCol)
-    abcStatPTC.grid(column=4, row=4, sticky=N, pady=5, padx=10)
-    
-    horSep2 = ttk.Separator(dashboard,orient=HORIZONTAL)
-    horSep2.grid(column=0, row=5, sticky=(E, W), columnspan=5, pady=5)
-
-    # Create the HC DPD options
-    # Title
-    hcButton = ttk.Label(dashboard, text="HC DPD Data Extraction Tool", font=fontH1)
-    hcButton.grid(column=0, row=6, sticky=(N, E), pady=5, padx=10)
-
-    # Stats label
-    hcStat = ttk.Label(dashboard, text="Current Stats", font=fontH2)
-    hcStat.grid(column=0, row=7, sticky=(N, E), pady=5, padx=10)
-
-    # In development
-    hcTemp = ttk.Button(dashboard, text="IN DEVELOPMENT", state=DISABLED)
-    hcTemp.grid(column=1, row=6, sticky=(N, W), pady=5, padx=10)
+        y = y + 2
 
 
 import sys
@@ -327,6 +397,9 @@ log = python_logging.start(priCon)
 # Set up database connection
 db = database.setup_db_connection(priCon, log)
 
+# Collect all the relevant data information
+programInfo = collect_table_info(pubCon, log)
+
 # Setting up the program window
 root = Tk()
 
@@ -337,13 +410,13 @@ icons = collect_icons()
 root.wm_state('zoomed')
 
 # Creating Menu Bar
-create_menu_bar(root)
+create_menu_bar(root, db, programInfo)
 
 # Create the frame
 dashboard = ttk.Frame(root, padding="3 3 12 12")
 dashboard.grid(column=0, row=0, sticky=(N, W, E, S), padx=5, pady=5)
 
 # Start initial program window
-create_main_page(root, db)
+create_main_page(root, db, programInfo)
 
 root.mainloop()
