@@ -34,7 +34,6 @@ def setup_db_connection(conf, log):
     return db
 
 def retrieve_table_data(cursor, query, colNames, log):
-    log.debug("Attempting query: %s" % query)
     cursor.execute(query)
 
     output = []

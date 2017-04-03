@@ -243,13 +243,19 @@ def create_validation_frame(root, db, table):
         # Advance to next label position
         x = x + span
 
+    # Account for the selection checkboxes
+    x = x + 1
+    maxX = x
+
     # Adjust the colspans for the title and separator
-    pageTitle.grid_configure(columnspan=x)
-    horSep1.grid_configure(columnspan=x)
+    pageTitle.grid_configure(columnspan=maxX)
+    horSep1.grid_configure(columnspan=maxX)
 
     x = 0
     y = y + 1
     i = 0
+
+    checkBoxes = []
 
     for row in data:
         for i in range(0, len(row)):
@@ -293,11 +299,44 @@ def create_validation_frame(root, db, table):
                 searchBut.grid(column=x, row=y, pady=5, padx=2)
                 x = x + 1
 
+        # Add checkbox to end of row
+        box = IntVar()
+        checkbox = Checkbutton(dashboard, variable=box)
+        checkbox.grid(column=x, row=y, pady=5, padx=5)
+        checkBoxes.append(box)
+
         x = 0
         y = y + 1
 
     horSep2 = ttk.Separator(dashboard,orient=HORIZONTAL)
-    horSep2.grid(column=x, row=y, sticky=(E, W), columnspan=5, pady=5)
+    horSep2.grid(column=x, row=y, sticky=(E, W), columnspan=maxX, pady=5)
+
+    # Add the upload buttons
+    x = maxX - 1
+    y = y + 1
+
+    # Select All
+    selectButton = ttk.Button(dashboard, text="Select All", width=15, 
+                              command=None)
+    selectButton.grid(column=x, row=y, pady=5)
+    y = y + 1
+
+    # Deselect All
+    deselectButton = ttk.Button(dashboard, text="Deselect All", width=15, 
+                                command=None)
+    deselectButton.grid(column=x, row=y, pady=5)
+    y = y + 1
+
+    # Upload Selected
+    uploadButton = ttk.Button(dashboard, text="Upload Selected", width=15, 
+                              command=None)
+    uploadButton.grid(column=x, row=y, pady=5)
+    y = y + 1
+
+    # Delete Selected
+    deleteButton = ttk.Button(dashboard, text="Delete Selected", width=15, 
+                              command=None)
+    deleteButton.grid(column=x, row=y, pady=5)
 
 def create_main_page(root, db, programInfo):
     root.title("Study Buffalo Data Validation Tool")
